@@ -8,6 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(GP_WERROR "Treat warnings as errors" OFF)
 option(GP_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(GP_BUILD_TESTS "Build the tests" ON)
 
 # Eigen: the system package if there is one, otherwise the headers from GitLab.
 find_package(Eigen3 CONFIG QUIET)
@@ -41,3 +42,8 @@ endif()
 
 add_executable(showcase main.cpp)
 target_link_libraries(showcase PRIVATE gp gp_options)
+
+if(GP_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
