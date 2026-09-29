@@ -38,3 +38,6 @@ if(GP_SANITIZE)
     target_compile_options(gp_options INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
     target_link_options(gp_options INTERFACE -fsanitize=address,undefined)
 endif()
+
+add_executable(showcase main.cpp)
+target_link_libraries(showcase PRIVATE gp gp_options)
