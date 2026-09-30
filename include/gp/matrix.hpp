@@ -19,10 +19,12 @@ namespace gp {
 
 // A plain Eigen matrix: not an expression template and not an Array.
 template <class M>
-concept EigenMatrix = requires {
-    typename M::Scalar;
-    typename M::PlainObject;
-} && std::derived_from<M, Eigen::PlainObjectBase<M>> && std::derived_from<M, Eigen::MatrixBase<M>>;
+concept EigenMatrix =
+    requires {
+        typename M::Scalar;
+        typename M::PlainObject;
+    } && std::derived_from<M, Eigen::PlainObjectBase<M>> &&
+    std::derived_from<M, Eigen::MatrixBase<M>>;
 
 // Square at compile time, or sized at run time (then checked by assertions).
 template <class M>
@@ -33,9 +35,8 @@ concept SquareMatrix = EigenMatrix<M> && (M::RowsAtCompileTime == M::ColsAtCompi
 // ---- Traits ----------------------------------------------------------------
 
 // Square matrices over a ring form a monoid; e is the identity of the sample's size.
-template <SquareMatrix M>
-struct identity_element<M, std::multiplies<>> {
-    static M of(const M& x) {
+template <SquareMatrix M> struct identity_element<M, std::multiplies<>> {
+    static M of(const M &x) {
         GP_EXPECTS(x.rows() == x.cols());
         return M::Identity(x.rows(), x.cols());
     }
@@ -45,7 +46,7 @@ struct identity_element<M, std::multiplies<>> {
 template <SquareMatrix M>
     requires Field<typename M::Scalar>
 struct inverse_operation<M, std::multiplies<>> {
-    static M of(const M& x) { return x.inverse(); }
+    static M of(const M &x) { return x.inverse(); }
 };
 
 // Eigen declares operator* for matrices of any shape and checks the sizes with a
@@ -58,18 +59,18 @@ inline constexpr bool disable_semigroup<M, std::multiplies<>> = true;
 
 namespace detail {
 
-// std::complex over a floating-point type: integer matrices are promoted to complex<double>.
+// Integer matrices are promoted to complex<double>.
 template <class S>
 using complex_of = std::complex<promote_t<typename Eigen::NumTraits<S>::Real>>;
 
-}  // namespace detail
+} // namespace detail
 
 // Aᵗ = V · diag(λᵢᵗ) · V⁻¹ for a diagonalizable A, principal branch. Every λᵢᵗ is
 // gp::pow(λᵢ, t) from the complex layer. The result is always a complex matrix,
 // because a real matrix can have a complex power (the square root of a reflection).
 template <SquareMatrix M, class E>
     requires Real<E> || Complex<E>
-auto pow(const M& a, const E& t) {
+auto pow(const M &a, const E &t) {
     using C = detail::complex_of<typename M::Scalar>;
     using R = typename C::value_type;
     using CM = Eigen::Matrix<C, M::RowsAtCompileTime, M::ColsAtCompileTime>;
@@ -77,15 +78,18 @@ auto pow(const M& a, const E& t) {
 
     GP_EXPECTS(a.rows() == a.cols());
     const Eigen::ComplexEigenSolver<CM> es(a.template cast<C>());
-    if (es.info() != Eigen::Success) throw std::domain_error("gp::pow: eigendecomposition failed");
+    if (es.info() != Eigen::Success)
+        throw std::domain_error("gp::pow: eigendecomposition failed");
     const Eigen::PartialPivLU<CM> lu(es.eigenvectors());
     if (lu.rcond() < std::sqrt(std::numeric_limits<R>::epsilon()))
         throw std::domain_error("gp::pow: matrix is not diagonalizable");
 
     CV lambda = es.eigenvalues();
-    for (C& l : lambda) {
-        // Rounding noise such as Im λ = −0.0 must not push a negative λ across the branch cut.
-        if (std::abs(l.imag()) <= R(64) * std::numeric_limits<R>::epsilon() * std::abs(l)) l = C(l.real(), R(0));
+    for (C &l : lambda) {
+        // Rounding noise such as Im λ = −0.0 must not push a negative λ across the
+        // branch cut.
+        if (std::abs(l.imag()) <= R(64) * std::numeric_limits<R>::epsilon() * std::abs(l))
+            l = C(l.real(), R(0));
         l = gp::pow(l, t);
     }
     return CM(es.eigenvectors() * lambda.asDiagonal() * lu.inverse());
@@ -94,8 +98,8 @@ auto pow(const M& a, const E& t) {
 // Expressions (A * B, A.transpose(), 2 * A) are evaluated first.
 template <class D, class E>
     requires(!EigenMatrix<D>)
-auto pow(const Eigen::MatrixBase<D>& x, const E& e) -> decltype(gp::pow(x.eval(), e)) {
+auto pow(const Eigen::MatrixBase<D> &x, const E &e) -> decltype(gp::pow(x.eval(), e)) {
     return gp::pow(x.eval(), e);
 }
 
-}  // namespace gp
+} // namespace gp
