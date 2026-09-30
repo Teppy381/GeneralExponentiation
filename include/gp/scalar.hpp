@@ -35,6 +35,21 @@ template <Arithmetic T> struct inverse_operation<T, std::plus<>> {
 
 // -- checked_pow: the same power(), a different monoid -----------
 
+namespace detail {
+
+// True if a·b does not fit in T
+template <Integer T> constexpr bool mul_overflows(T a, T b) noexcept {
+    if (a == T(0) || b == T(0))
+        return false;
+    using U = std::make_unsigned_t<T>;
+    const bool negative = (is_negative(a) != is_negative(b));
+    const U max = static_cast<U>(std::numeric_limits<T>::max());
+    const U limit = negative ? static_cast<U>(max + U(1)) : max;
+    return magnitude(a) > limit / magnitude(b);
+}
+
+} // namespace detail
+
 // Multiplication lifted into std::expected: an overflow absorbs everything after it.
 template <Integer T> struct checked_multiplies {
     using value_type = std::expected<T, std::errc>;
@@ -45,10 +60,9 @@ template <Integer T> struct checked_multiplies {
             return a;
         if (!b)
             return b;
-        T r{};
-        if (__builtin_mul_overflow(*a, *b, &r))
+        if (detail::mul_overflows(*a, *b))
             return std::unexpected(std::errc::result_out_of_range);
-        return r;
+        return static_cast<T>(*a * *b);
     }
 };
 

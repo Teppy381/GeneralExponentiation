@@ -42,6 +42,18 @@ static_assert(gp::power(7, -3, std::plus<>{}) == -21);
 static_assert(gp::checked_pow(-2, 31) == std::numeric_limits<int>::min()); // fits exactly
 static_assert(!gp::checked_pow(2, 31) && !gp::checked_pow(3LL, 40));
 
+// ---- checked_pow at the edges of the type ----
+constexpr int int_min = std::numeric_limits<int>::min();
+static_assert(gp::checked_pow(int_min, 1) == int_min && !gp::checked_pow(int_min, 2));
+static_assert(!gp::checked_multiplies<int>{}(int_min, -1)); // |min| has no positive twin
+static_assert(gp::checked_multiplies<int>{}(int_min, 1) == int_min);
+static_assert(gp::checked_pow(-2, 32).error() == std::errc::result_out_of_range);
+static_assert(gp::checked_pow(0, 5) == 0 && gp::checked_pow(-1, 5) == -1);
+static_assert(gp::checked_pow(2U, 31) == 2147483648U && !gp::checked_pow(2U, 32));
+static_assert(gp::checked_pow(short(-2), 15) == -32768 && !gp::checked_pow(short(2), 15));
+static_assert(gp::checked_pow(10LL, 18) == 1'000'000'000'000'000'000 &&
+              !gp::checked_pow(10LL, 19));
+
 // ---- O(log n): ⌊log₂ n⌋ squarings + popcount(n) − 1 multiplications ----
 struct counting_plus {
     int *count;
