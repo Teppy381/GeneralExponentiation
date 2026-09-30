@@ -16,6 +16,8 @@
 #include <system_error>
 #include <type_traits>
 
+// ---------------- SHOWCASE OF CONSTEXPR FUNCTIONALITY ----------------
+
 // -- Retroactive modeling: std::string with concatenation is a monoid, e = "" --
 template <> struct gp::identity_element<std::string, std::plus<>> {
     static constexpr std::string of(const std::string &) { return {}; }
@@ -45,8 +47,17 @@ static_assert(!gp::checked_pow(2, 31));
 
 namespace {
 
+using gp::structure_of;
+using std::numbers::pi;
+
 using cd = std::complex<double>;
 using Matrix2l = Eigen::Matrix<std::int64_t, 2, 2>;
+
+const cd i{0, 1};
+
+Eigen::Matrix2d rot(double a) {
+    return Eigen::Matrix2d{{std::cos(a), -std::sin(a)}, {std::sin(a), std::cos(a)}};
+}
 
 std::string show(std::integral auto x) { return std::format("{}", x); }
 // Prints −0 as 0.
@@ -96,14 +107,9 @@ void row(std::string_view expr, std::string_view value, std::string_view structu
     std::println("{}", line);
 }
 
-} // namespace
-
-int main() {
-    using gp::structure_of;
-    using std::numbers::pi;
-    const cd i{0, 1};
-
+void one_algorithm() {
     section("0. One algorithm, many structures: power(x, n, op)");
+
     row("power(7, 13, plus)", show(gp::power(7, 13, std::plus<>{})),
         structure_of<int, std::plus<>>(), "Egyptian multiplication: 13·7");
     row("power(7, -3, plus)", show(gp::power(7, -3, std::plus<>{})),
@@ -113,8 +119,11 @@ int main() {
         "not commutative; e = \"\" is declared in main.cpp");
     row("power(Q, 90, lambda)[1]", show(fib(90)), structure_of<mat2, mat2_mul_t>(),
         "fib(90) on std::array: no e, so n > 0");
+}
 
+void integers() {
     section("1. Integers: a monoid under ×, so n >= 0");
+
     row("pow(3, 13)", show(gp::pow(3, 13)), structure_of<int>());
     row("pow(2LL, 62)", show(gp::pow(2LL, 62)), structure_of<long long>());
     const auto checked = structure_of<std::expected<long long, std::errc>,
@@ -123,30 +132,36 @@ int main() {
         "same power(), std::expected monoid");
     row("checked_pow(10LL, 19)", show(gp::checked_pow(10LL, 19)), checked,
         "overflow is a value, not UB");
+}
 
+void reals() {
     section("2. Reals: a group under × (0 aside); real exponents build on integer ones");
+
     row("pow(2.0, -3)", show(gp::pow(2.0, -3)), structure_of<double>());
     row("pow(2.0, 0.5)", show(gp::pow(2.0, 0.5)), "",
         std::format("std::sqrt(2) = {}", std::sqrt(2.0)));
     row("pow(-8.0, 3.0)", show(gp::pow(-8.0, 3.0)), "", "integral y → the exact path");
     row("pow(-8.0, 1.0 / 3)", show(gp::pow(-8.0, 1.0 / 3)), "", "not a real number");
     row("pow(10, 0.5)", show(gp::pow(10, 0.5)), "", "an int base is promoted to double");
+}
 
+void complex_numbers() {
     section("3. Complex numbers: build on the reals, |z|ᵃ comes from layer 2");
+
     row("pow(i, 2)", show(gp::pow(i, 2)), structure_of<cd>());
     row("pow(1 + i, 8.0)", show(gp::pow(1.0 + i, 8.0)), "", "integral y → exact power()");
     row("std::pow(1 + i, 8.0)", show(std::pow(1.0 + i, 8.0)), "",
         "polar form, for comparison");
     row("pow(e, iπ)", show(gp::pow(std::numbers::e, i * pi)), "", "Euler: ≈ −1");
     row("pow(i, i)", show(gp::pow(i, i)), "", "= e^(−π/2), a real number");
+}
 
+void matrices() {
     section("4. Matrices: the same power(), Identity() as e");
+
     const Matrix2l Q{{1, 1}, {1, 0}};
     row("pow(Q, 90), Q = [1 1; 1 0]", show(gp::pow(Q, 90)), structure_of<Matrix2l>(),
         "Fibonacci in int64");
-    const auto rot = [](double a) {
-        return Eigen::Matrix2d{{std::cos(a), -std::sin(a)}, {std::sin(a), std::cos(a)}};
-    };
     row("pow(R(30°), 3)", show(gp::pow(rot(pi / 6), 3)), structure_of<Eigen::Matrix2d>(),
         "= R(90°)");
     const Eigen::Matrix2d A{{4, 7}, {2, 6}};
@@ -160,8 +175,11 @@ int main() {
         std::format("{} | {} | {}", structure_of<Eigen::Matrix2i>(),
                     structure_of<Eigen::Matrix2d>(), structure_of<Eigen::Matrix2cd>()),
         "", "A⁻¹ exists only over a field");
+}
 
+void complex_matrices() {
     section("5. Complex matrices: matrices over the field ℂ; Aᵗ builds on ℂ^t");
+
     const Eigen::Matrix2cd sx{{0, 1}, {1, 0}}, sy{{0, -i}, {i, 0}};
     row("pow(σy, 2)", show(gp::pow(sy, 2)), structure_of<Eigen::Matrix2cd>(),
         "Pauli matrices square to I");
@@ -180,6 +198,17 @@ int main() {
     row("pow(pow(σx, 0.5), 2)", show(gp::pow(sqrt_not, 2)),
         structure_of<Eigen::Matrix2cd>());
     row("pow(R(90°), 0.5)", show(gp::pow(rot(pi / 2), 0.5)), "", "= R(45°)");
+}
+
+} // namespace
+
+int main() {
+    one_algorithm();
+    integers();
+    reals();
+    complex_numbers();
+    matrices();
+    complex_matrices();
 
     // Rejected at compile time:
     //   gp::pow(Eigen::Matrix<double, 2, 3>{}, 2);  // 2×3 is not a semigroup
