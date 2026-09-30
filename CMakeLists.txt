@@ -6,8 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(GP_WERROR "Treat warnings as errors" OFF)
-option(GP_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(GP_BUILD_TESTS "Build the tests" ON)
 
 # Eigen: the system package if there is one, otherwise the headers from GitLab.
@@ -30,18 +28,8 @@ target_include_directories(gp INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(gp INTERFACE cxx_std_23)
 target_link_libraries(gp INTERFACE Eigen3::Eigen)
 
-# Warnings and sanitizers for this project's own targets
-add_library(gp_options INTERFACE)
-target_compile_options(gp_options INTERFACE
-    -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow
-    $<$<BOOL:${GP_WERROR}>:-Werror>)
-if(GP_SANITIZE)
-    target_compile_options(gp_options INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
-    target_link_options(gp_options INTERFACE -fsanitize=address,undefined)
-endif()
-
 add_executable(showcase main.cpp)
-target_link_libraries(showcase PRIVATE gp gp_options)
+target_link_libraries(showcase PRIVATE gp)
 
 if(GP_BUILD_TESTS)
     enable_testing()
